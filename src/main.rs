@@ -6,10 +6,10 @@ use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
     layout::{Constraint, Layout, Rect},
-    style::{Color, Stylize, palette::tailwind},
+    style::{Color, Style, Stylize, palette::tailwind},
     symbols,
-    text::Line,
-    widgets::{Block, Padding, Paragraph, Tabs, Widget},
+    text::{self, Line},
+    widgets::{Block, Borders, Padding, Paragraph, Tabs, Widget, Wrap},
 };
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
@@ -168,12 +168,46 @@ impl SelectedTab {
             .render(area, buf);
     }
 
-    fn render_tab1(self, area: Rect, buf: &mut Buffer, input: &TextInput) {
+    fn render_tab1(&self, area: Rect, buf: &mut Buffer, input: &TextInput) {
         use Constraint::{Length, Min};
+        let block = Block::default()
+            .title(" Account ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan));
 
-        let vertical = Layout::vertical([Min(0), Length(3)]);
-        let [content_area, input_area] = vertical.areas(area);
-        input.render(content_area, buf);
+        let inner = block.inner(area);
+        block.render(area, buf);
+
+        let layout = Layout::vertical([
+            Length(1),
+            Length(1),
+            Length(1),
+            Length(1),
+            Length(3),
+            Min(0),
+        ]);
+
+        let [
+            id_label_area,
+            id_value_area,
+            _,
+            name_label_area,
+            input_area,
+            _,
+        ] = layout.areas(inner);
+
+        Paragraph::new("User ID")
+            .style(Style::default().fg(Color::DarkGray))
+            .render(id_label_area, buf);
+
+        Paragraph::new("usr_a1b2c3d4e5f6")
+            .style(Style::default().fg(Color::Yellow).bold())
+            .render(id_value_area, buf);
+
+        Paragraph::new("Name")
+            .style(Style::default().fg(Color::DarkGray))
+            .render(name_label_area, buf);
+
         input.render(input_area, buf);
     }
 
