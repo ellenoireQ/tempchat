@@ -1,3 +1,5 @@
+mod textinput;
+
 use color_eyre::Result;
 use ratatui::{
     DefaultTerminal,
@@ -11,6 +13,8 @@ use ratatui::{
 };
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+use crate::textinput::textinput::TextInput;
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let terminal = ratatui::init();
@@ -23,6 +27,7 @@ fn main() -> Result<()> {
 struct App {
     state: AppState,
     selected_tab: SelectedTab,
+    input: TextInput,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -45,6 +50,7 @@ impl App {
     fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.state == AppState::Running {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
+
             self.handle_events()?;
         }
         Ok(())
@@ -53,11 +59,19 @@ impl App {
     fn handle_events(&mut self) -> std::io::Result<()> {
         if let Event::Key(key) = event::read()? {
             if key.kind == KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
-                    KeyCode::Char('h') | KeyCode::Left => self.previous_tab(),
-                    KeyCode::Char('q') | KeyCode::Esc => self.quit(),
-                    _ => {}
+                if self.input.focused {
+                    match key.code {
+                        KeyCode::Esc => self.input.focused = false,
+                        _ => self.input.handle_event(key),
+                    }
+                } else {
+                    match key.code {
+                        KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
+                        KeyCode::Char('h') | KeyCode::Left => self.previous_tab(),
+                        KeyCode::Char('q') => self.quit(),
+                        KeyCode::Char('i') => self.input.focused = true,
+                        _ => {}
+                    }
                 }
             }
         }
@@ -102,7 +116,7 @@ impl Widget for &App {
 
         render_title(title_area, buf);
         self.render_tabs(tabs_area, buf);
-        self.selected_tab.render(inner_area, buf);
+        self.selected_tab.render(inner_area, buf, &self.input);
         render_footer(footer_area, buf);
     }
 }
@@ -131,11 +145,11 @@ fn render_footer(area: Rect, buf: &mut Buffer) {
         .render(area, buf);
 }
 
-impl Widget for SelectedTab {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+impl SelectedTab {
+    fn render(self, area: Rect, buf: &mut Buffer, app: &TextInput) {
         match self {
             Self::Tab1 => self.render_tab0(area, buf),
-            Self::Tab2 => self.render_tab1(area, buf),
+            Self::Tab2 => self.render_tab1(area, buf, app),
         }
     }
 }
@@ -149,15 +163,18 @@ impl SelectedTab {
     }
 
     fn render_tab0(self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new("This channel tab")
+        Paragraph::new("Channel content here")
             .block(self.block())
             .render(area, buf);
     }
 
-    fn render_tab1(self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new("This account tab")
-            .block(self.block())
-            .render(area, buf);
+    fn render_tab1(self, area: Rect, buf: &mut Buffer, input: &TextInput) {
+        use Constraint::{Length, Min};
+
+        let vertical = Layout::vertical([Min(0), Length(3)]);
+        let [content_area, input_area] = vertical.areas(area);
+        input.render(content_area, buf);
+        input.render(input_area, buf);
     }
 
     fn block(self) -> Block<'static> {
